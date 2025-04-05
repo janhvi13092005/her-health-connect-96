@@ -43,6 +43,7 @@ const Layout = () => {
                   <NavLink
                     key={item.path}
                     to={item.path}
+                    end={item.path === "/"}
                     className={({ isActive }) => cn(
                       "inline-flex items-center px-3 py-2 text-sm font-medium rounded-md",
                       isActive
@@ -96,6 +97,7 @@ const Layout = () => {
               <NavLink
                 key={item.path}
                 to={item.path}
+                end={item.path === "/"}
                 className={({ isActive }) => cn(
                   "block pl-3 pr-4 py-2 text-base font-medium flex items-center",
                   isActive
