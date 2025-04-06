@@ -3,9 +3,13 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Paperclip as PaperclipIcon, Mic as MicIcon, Smile as SmileIcon, MessageSquare } from "lucide-react";
+import { Send, Paperclip as PaperclipIcon, Mic as MicIcon, MicOff, Smile as SmileIcon, MessageSquare, Play, Trash2, Loader2 } from "lucide-react";
 import { Doctor } from "./DoctorList";
 import { useToast } from "@/components/ui/use-toast";
+import { Progress } from "@/components/ui/progress";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import data from "@emoji-mart/data";
+import Picker from "@emoji-mart/react";
 
 interface Message {
   id: string;
@@ -13,6 +17,9 @@ interface Message {
   text: string;
   timestamp: string;
   isUser: boolean;
+  type?: "text" | "voice";
+  audioUrl?: string;
+  duration?: number;
 }
 
 interface DoctorChatProps {
@@ -40,6 +47,18 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Voice recording states
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  
+  // Refs for recording
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<BlobPart[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize chat with a welcome message when connecting with a doctor
   useEffect(() => {
@@ -51,6 +70,7 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         text: `Hello! I'm Dr. ${selectedDoctor.name.split(' ')[1]}, how can I help you today?`,
         timestamp: new Date().toISOString(),
         isUser: false,
+        type: "text"
       };
       
       setMessages([initialMessage]);
@@ -63,6 +83,18 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Cleanup recording resources when component unmounts
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+      }
+    };
+  }, [audioUrl]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
@@ -83,6 +115,7 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       text: newMessage,
       timestamp: new Date().toISOString(),
       isUser: true,
+      type: "text"
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -104,10 +137,141 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         text: responseText,
         timestamp: new Date().toISOString(),
         isUser: false,
+        type: "text"
       };
       
       setMessages(prev => [...prev, doctorResponse]);
     }, 2000);
+  };
+
+  const handleVoiceRecording = async () => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please login to send voice messages.",
+      });
+      return;
+    }
+
+    try {
+      if (isRecording) {
+        // Stop recording
+        if (mediaRecorderRef.current) {
+          mediaRecorderRef.current.stop();
+          setIsProcessingAudio(true);
+        }
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+          timerRef.current = null;
+        }
+        setIsRecording(false);
+        return;
+      }
+      
+      // Start new recording
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        audioChunksRef.current.push(event.data);
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        setAudioBlob(audioBlob);
+        setAudioUrl(audioUrl);
+        setIsProcessingAudio(false);
+        
+        // Stop all audio tracks
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      // Start recording
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingTime(0);
+      
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1);
+      }, 1000);
+      
+    } catch (error) {
+      console.error("Error accessing microphone:", error);
+      toast({
+        variant: "destructive",
+        title: "Microphone Access Error",
+        description: "Please grant permission to access your microphone.",
+      });
+    }
+  };
+
+  const cancelVoiceMessage = () => {
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+    }
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setRecordingTime(0);
+  };
+
+  const sendVoiceMessage = () => {
+    if (!audioBlob || !audioUrl) return;
+    
+    // Create and add voice message to the chat
+    const voiceMessage: Message = {
+      id: `msg-voice-${Date.now()}`,
+      senderId: user?.id || "user",
+      text: "Voice message",
+      timestamp: new Date().toISOString(),
+      isUser: true,
+      type: "voice",
+      audioUrl: audioUrl,
+      duration: recordingTime
+    };
+    
+    setMessages(prev => [...prev, voiceMessage]);
+    
+    // Reset voice recording states
+    setAudioBlob(null);
+    setAudioUrl(null);
+    setRecordingTime(0);
+    
+    // Simulate doctor typing after voice message
+    setIsTyping(true);
+    
+    // Simulate doctor response after a delay
+    setTimeout(() => {
+      setIsTyping(false);
+      
+      // Get a random response
+      const responseText = "Thank you for your voice message. Could you please provide more details in text format?";
+      
+      const doctorResponse: Message = {
+        id: `msg-${Date.now()}`,
+        senderId: selectedDoctor?.id || "doctor",
+        text: responseText,
+        timestamp: new Date().toISOString(),
+        isUser: false,
+        type: "text"
+      };
+      
+      setMessages(prev => [...prev, doctorResponse]);
+    }, 2000);
+  };
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const insertEmoji = (emoji: any) => {
+    setNewMessage(prev => prev + emoji.native);
   };
 
   return (
@@ -147,9 +311,31 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
                       : 'bg-gray-100 dark:bg-gray-800'
                   }`}
                 >
-                  <p className={`text-sm ${message.isUser ? 'text-white' : ''}`}>
-                    {message.text}
-                  </p>
+                  {message.type === "voice" ? (
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 rounded-full bg-white/20"
+                        onClick={() => {
+                          const audio = new Audio(message.audioUrl);
+                          audio.play();
+                        }}
+                      >
+                        <Play className="h-4 w-4" />
+                      </Button>
+                      <div className="flex-grow">
+                        <div className="h-2 bg-white/30 rounded-full w-full">
+                          <div className="bg-white/80 h-full rounded-full" style={{width: "100%"}}></div>
+                        </div>
+                      </div>
+                      <span className="text-xs">{formatTime(message.duration || 0)}</span>
+                    </div>
+                  ) : (
+                    <p className={`text-sm ${message.isUser ? 'text-white' : ''}`}>
+                      {message.text}
+                    </p>
+                  )}
                   <p className={`text-xs mt-1 ${message.isUser ? 'text-white/70' : 'text-gray-500'}`}>
                     {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </p>
@@ -182,6 +368,64 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       </div>
       
       <div className="p-4 border-t dark:border-gray-800">
+        {/* Voice recording preview */}
+        {audioUrl && !isRecording && (
+          <div className="flex items-center gap-2 mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="h-8 w-8 rounded-full"
+              onClick={() => {
+                const audio = new Audio(audioUrl);
+                audio.play();
+              }}
+            >
+              <Play className="h-4 w-4" />
+            </Button>
+            <div className="flex-grow">
+              <div className="h-2 bg-gray-300 dark:bg-gray-700 rounded-full w-full">
+                <div className="bg-doctalk-purple h-full rounded-full" style={{width: "100%"}}></div>
+              </div>
+            </div>
+            <span className="text-xs text-gray-500">{formatTime(recordingTime)}</span>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500 hover:text-gray-700"
+              onClick={cancelVoiceMessage}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={sendVoiceMessage}
+            >
+              <Send className="h-4 w-4 mr-1" />
+              Send
+            </Button>
+          </div>
+        )}
+        
+        {isRecording && (
+          <div className="flex items-center gap-2 mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800/30 rounded-lg">
+            <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+            <span className="text-sm text-red-500 font-medium">Recording {formatTime(recordingTime)}</span>
+            <div className="flex-grow">
+              <Progress value={Math.min(recordingTime / 60 * 100, 100)} className="h-1" />
+            </div>
+            <Button 
+              variant="ghost"
+              size="sm"
+              className="text-red-500 hover:text-red-700"
+              onClick={handleVoiceRecording}
+            >
+              <MicOff className="h-4 w-4 mr-1" />
+              Stop
+            </Button>
+          </div>
+        )}
+        
+        {/* Text input and action buttons */}
         <div className="flex space-x-2">
           <Input 
             placeholder="Type your message..."
@@ -193,8 +437,9 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
                 handleSendMessage();
               }
             }}
+            disabled={isRecording || isProcessingAudio}
           />
-          <Button size="icon" onClick={handleSendMessage}>
+          <Button size="icon" onClick={handleSendMessage} disabled={isRecording || isProcessingAudio || !newMessage.trim()}>
             <Send className="h-4 w-4" />
           </Button>
         </div>
@@ -212,27 +457,39 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
               <PaperclipIcon className="h-4 w-4" />
             </Button>
             <Button 
-              variant="ghost" 
+              variant={isRecording ? "destructive" : "ghost"}
               size="icon" 
-              className="text-gray-500"
-              onClick={() => toast({ 
-                title: "Feature Coming Soon", 
-                description: "Voice messages will be available in the next update."
-              })}
+              className={isRecording ? "" : "text-gray-500"}
+              onClick={handleVoiceRecording}
+              disabled={isProcessingAudio || !!audioUrl}
             >
-              <MicIcon className="h-4 w-4" />
+              {isProcessingAudio ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <MicIcon className="h-4 w-4" />
+              )}
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-gray-500"
-              onClick={() => toast({ 
-                title: "Feature Coming Soon", 
-                description: "Emojis will be available in the next update."
-              })}
-            >
-              <SmileIcon className="h-4 w-4" />
-            </Button>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-gray-500"
+                  disabled={isRecording || isProcessingAudio}
+                >
+                  <SmileIcon className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0 border-none shadow-lg" align="start" sideOffset={5}>
+                <Picker 
+                  data={data} 
+                  onEmojiSelect={insertEmoji}
+                  theme="light"
+                  previewPosition="none"
+                  skinTonePosition="none"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <p className="text-xs text-gray-500 self-center">
             Messages are encrypted and secure
