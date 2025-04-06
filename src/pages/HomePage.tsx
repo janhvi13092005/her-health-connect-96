@@ -1,8 +1,7 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from "react-router-dom";
-import { Heart, MessageSquare, Bell } from "lucide-react";
+import { Heart, MessageSquare, Bell, MapPin } from "lucide-react";
 
 const HomePage = () => {
   return (
@@ -16,7 +15,7 @@ const HomePage = () => {
             Your trusted partner for women's health. Get information about breast cancer,
             PCOD, PCOS and connect with specialists 24/7.
           </p>
-          <div className="mt-8 flex justify-center gap-4">
+          <div className="mt-8 flex flex-wrap justify-center gap-4">
             <Button asChild size="lg" className="button-gradient">
               <Link to="/doctor-connect">
                 <MessageSquare className="mr-2 h-5 w-5" />
@@ -27,6 +26,12 @@ const HomePage = () => {
               <Link to="/symptom-quiz">
                 <Heart className="mr-2 h-5 w-5" />
                 Take Symptom Quiz
+              </Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link to="/find-doctor">
+                <MapPin className="mr-2 h-5 w-5" />
+                Find a Doctor Near You
               </Link>
             </Button>
           </div>
@@ -72,14 +77,14 @@ const HomePage = () => {
             <CardContent className="pt-6">
               <div className="flex flex-col items-center text-center">
                 <div className="h-12 w-12 bg-doctalk-pink/10 rounded-full flex items-center justify-center mb-4">
-                  <Bell className="h-6 w-6 text-doctalk-pink" />
+                  <MapPin className="h-6 w-6 text-doctalk-pink" />
                 </div>
-                <h3 className="text-xl font-semibold mb-2">Emergency SOS</h3>
+                <h3 className="text-xl font-semibold mb-2">Find a Doctor</h3>
                 <p className="text-gray-600 dark:text-gray-300">
-                  One-tap emergency assistance. Connect with nearby healthcare providers in critical situations.
+                  Locate nearby clinics and specialists for in-person consultations and treatments.
                 </p>
                 <Button asChild variant="link" className="mt-4">
-                  <Link to="/sos">Learn More</Link>
+                  <Link to="/find-doctor">Find Near Me</Link>
                 </Button>
               </div>
             </CardContent>

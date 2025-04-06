@@ -10,6 +10,7 @@ import HomePage from "./pages/HomePage";
 import AboutPage from "./pages/AboutPage";
 import SymptomQuizPage from "./pages/SymptomQuizPage";
 import DoctorConnectPage from "./pages/DoctorConnectPage";
+import FindDoctorPage from "./pages/FindDoctorPage";
 import SOSPage from "./pages/SOSPage";
 import AuthPage from "./pages/AuthPage";
 import NotFound from "./pages/NotFound";
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="about" element={<AboutPage />} />
               <Route path="symptom-quiz" element={<SymptomQuizPage />} />
               <Route path="doctor-connect" element={<DoctorConnectPage />} />
+              <Route path="find-doctor" element={<FindDoctorPage />} />
               <Route path="sos" element={<SOSPage />} />
               <Route path="auth" element={<AuthPage />} />
               <Route path="*" element={<NotFound />} />

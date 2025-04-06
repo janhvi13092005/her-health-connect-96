@@ -107,4 +107,26 @@
   .card-shadow {
     @apply shadow-md hover:shadow-lg transition-shadow duration-300;
   }
+
+  /* Mapbox custom styles */
+  .mapboxgl-popup {
+    @apply max-w-xs;
+  }
+
+  .mapboxgl-popup-content {
+    @apply p-3 rounded-lg shadow-lg border border-gray-200 bg-white dark:bg-gray-800 dark:border-gray-700;
+  }
+
+  .mapboxgl-popup-content h3 {
+    @apply text-base font-semibold mb-1;
+  }
+
+  .mapboxgl-popup-content p {
+    @apply text-sm text-gray-600 dark:text-gray-300 mb-2;
+  }
+
+  .mapboxgl-popup-close-button {
+    @apply text-lg px-1;
+  }
 }
+

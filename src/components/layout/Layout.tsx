@@ -4,7 +4,7 @@ import { Outlet, NavLink, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { 
-  Heart, Home, Users, MessageSquare, Bell, User, LogOut, Menu, X 
+  Heart, Home, Users, MessageSquare, Bell, User, LogOut, Menu, X, MapPin 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +22,7 @@ const Layout = () => {
     { path: "/about", label: "About", icon: Users },
     { path: "/symptom-quiz", label: "Symptom Quiz", icon: Heart },
     { path: "/doctor-connect", label: "Doctor Connect", icon: MessageSquare },
+    { path: "/find-doctor", label: "Find a Doctor", icon: MapPin },
     { path: "/sos", label: "Emergency SOS", icon: Bell },
   ];
 
