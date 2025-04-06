@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,6 +7,7 @@ import { Doctor } from "./DoctorList";
 import { useToast } from "@/components/ui/use-toast";
 import { Progress } from "@/components/ui/progress";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import data from "@emoji-mart/data";
 import Picker from "@emoji-mart/react";
 
@@ -38,7 +38,6 @@ interface DoctorChatProps {
   user: any;
 }
 
-// Automated responses for the chat
 const automatedResponses = [
   "Hello, how can I help you today?",
   "Could you tell me more about your symptoms?",
@@ -52,7 +51,6 @@ const automatedResponses = [
   "That's important information. Thank you for sharing."
 ];
 
-// Allowed file types for upload
 const ALLOWED_FILE_TYPES = [
   "image/jpeg", 
   "image/png", 
@@ -70,25 +68,20 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   
-  // Voice recording states
   const [isRecording, setIsRecording] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
   
-  // File attachment states
   const [fileAttachment, setFileAttachment] = useState<FileAttachment | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
-  // Refs for recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<BlobPart[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize chat with a welcome message when connecting with a doctor
   useEffect(() => {
-    // Add initial doctor message when the chat begins
     if (selectedDoctor && messages.length === 0) {
       const initialMessage: Message = {
         id: `msg-init-${Date.now()}`,
@@ -104,13 +97,11 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   }, [selectedDoctor]); 
 
   useEffect(() => {
-    // Auto-scroll to bottom when messages change
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
-  // Cleanup recording resources when component unmounts
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -137,7 +128,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       return;
     }
 
-    // Create message object
     let userMessage: Message;
     
     if (fileAttachment) {
@@ -168,14 +158,11 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     setNewMessage("");
     setFileAttachment(null);
 
-    // Simulate doctor typing
     setIsTyping(true);
     
-    // Simulate doctor response after a delay
     setTimeout(() => {
       setIsTyping(false);
       
-      // Get a random response
       const responseText = automatedResponses[Math.floor(Math.random() * automatedResponses.length)];
       
       const doctorResponse: Message = {
@@ -203,7 +190,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
 
     try {
       if (isRecording) {
-        // Stop recording
         if (mediaRecorderRef.current) {
           mediaRecorderRef.current.stop();
           setIsProcessingAudio(true);
@@ -216,7 +202,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         return;
       }
       
-      // Start new recording
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -233,16 +218,13 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         setAudioUrl(audioUrl);
         setIsProcessingAudio(false);
         
-        // Stop all audio tracks
         stream.getTracks().forEach(track => track.stop());
       };
 
-      // Start recording
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
       
-      // Start timer
       timerRef.current = setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
@@ -265,7 +247,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!ALLOWED_FILE_TYPES.includes(file.type)) {
       toast({
         variant: "destructive",
@@ -275,7 +256,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       return;
     }
 
-    // Validate file size
     if (file.size > MAX_FILE_SIZE) {
       toast({
         variant: "destructive",
@@ -293,7 +273,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       size: file.size
     });
 
-    // Reset file input
     if (e.target) {
       e.target.value = "";
     }
@@ -318,7 +297,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   const sendVoiceMessage = () => {
     if (!audioBlob || !audioUrl) return;
     
-    // Create and add voice message to the chat
     const voiceMessage: Message = {
       id: `msg-voice-${Date.now()}`,
       senderId: user?.id || "user",
@@ -332,19 +310,15 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     
     setMessages(prev => [...prev, voiceMessage]);
     
-    // Reset voice recording states
     setAudioBlob(null);
     setAudioUrl(null);
     setRecordingTime(0);
     
-    // Simulate doctor typing after voice message
     setIsTyping(true);
     
-    // Simulate doctor response after a delay
     setTimeout(() => {
       setIsTyping(false);
       
-      // Get a random response
       const responseText = "Thank you for your voice message. Could you please provide more details in text format?";
       
       const doctorResponse: Message = {
@@ -526,7 +500,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       </div>
       
       <div className="p-4 border-t dark:border-gray-800">
-        {/* File attachment preview */}
         {fileAttachment && (
           <div className="flex items-center gap-2 mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
             {fileAttachment.type.startsWith("image/") ? (
@@ -557,7 +530,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
           </div>
         )}
         
-        {/* Voice recording preview */}
         {audioUrl && !isRecording && (
           <div className="flex items-center gap-2 mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
             <Button 
@@ -614,7 +586,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
           </div>
         )}
         
-        {/* Hidden file input */}
         <input 
           type="file" 
           ref={fileInputRef} 
@@ -623,7 +594,6 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
           accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx"
         />
         
-        {/* Text input and action buttons */}
         <div className="flex space-x-2">
           <Input 
             placeholder="Type your message..."
@@ -647,49 +617,78 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         </div>
         <div className="flex justify-between mt-2">
           <div className="flex space-x-2">
-            <Button 
-              variant="ghost" 
-              size="icon" 
-              className="text-gray-500"
-              onClick={handleFileUpload}
-              disabled={isRecording || !!fileAttachment}
-            >
-              <PaperclipIcon className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant={isRecording ? "destructive" : "ghost"}
-              size="icon" 
-              className={isRecording ? "" : "text-gray-500"}
-              onClick={handleVoiceRecording}
-              disabled={isProcessingAudio || !!audioUrl || !!fileAttachment}
-            >
-              {isProcessingAudio ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <MicIcon className="h-4 w-4" />
-              )}
-            </Button>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-gray-500"
-                  disabled={isRecording || isProcessingAudio}
-                >
-                  <SmileIcon className="h-4 w-4" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0 border-none shadow-lg" align="start" sideOffset={5}>
-                <Picker 
-                  data={data} 
-                  onEmojiSelect={insertEmoji}
-                  theme="light"
-                  previewPosition="none"
-                  skinTonePosition="none"
-                />
-              </PopoverContent>
-            </Popover>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="text-gray-500"
+                    onClick={handleFileUpload}
+                    disabled={isRecording || !!fileAttachment}
+                  >
+                    <PaperclipIcon className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Attach file (max 5MB)</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button 
+                    variant={isRecording ? "destructive" : "ghost"}
+                    size="icon" 
+                    className={isRecording ? "" : "text-gray-500"}
+                    onClick={handleVoiceRecording}
+                    disabled={isProcessingAudio || !!audioUrl || !!fileAttachment}
+                  >
+                    {isProcessingAudio ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <MicIcon className="h-4 w-4" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Record voice message</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="text-gray-500"
+                        disabled={isRecording || isProcessingAudio}
+                      >
+                        <SmileIcon className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0 border-none shadow-lg" align="start" sideOffset={5}>
+                      <Picker 
+                        data={data} 
+                        onEmojiSelect={insertEmoji}
+                        theme="light"
+                        previewPosition="none"
+                        skinTonePosition="none"
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Add emoji</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
           <p className="text-xs text-gray-500 self-center">
             Messages are encrypted and secure
