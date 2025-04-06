@@ -130,6 +130,45 @@ const DoctorConnectPage = () => {
     }, 1000);
   };
 
+  // Function to render the appropriate content based on the connection state
+  const renderDoctorContent = () => {
+    if (!selectedDoctor) {
+      return <EmptyState />;
+    }
+    
+    if (!isConnected && !inCall) {
+      return (
+        <DoctorProfile 
+          selectedDoctor={selectedDoctor}
+          handleConnect={handleConnect}
+          startCall={startCall}
+          isConnecting={isConnecting}
+        />
+      );
+    }
+    
+    // This is the key change - only render TabsContent when isConnected or inCall is true
+    if (selectedTab === "chat") {
+      return (
+        <DoctorChat 
+          selectedDoctor={selectedDoctor} 
+          user={user} 
+        />
+      );
+    }
+    
+    return (
+      <DoctorCall 
+        selectedDoctor={selectedDoctor}
+        inCall={inCall}
+        isConnecting={isConnecting}
+        callDuration={callDuration}
+        startCall={startCall}
+        endCall={endCall}
+      />
+    );
+  };
+
   return (
     <div className="min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -206,36 +245,8 @@ const DoctorConnectPage = () => {
               </CardHeader>
               
               <CardContent className="p-0">
-                {!selectedDoctor ? (
-                  <EmptyState />
-                ) : !isConnected && !inCall ? (
-                  <DoctorProfile 
-                    selectedDoctor={selectedDoctor}
-                    handleConnect={handleConnect}
-                    startCall={startCall}
-                    isConnecting={isConnecting}
-                  />
-                ) : (
-                  <>
-                    <TabsContent value="chat" className={selectedTab === "chat" ? "block" : "hidden"}>
-                      <DoctorChat 
-                        selectedDoctor={selectedDoctor} 
-                        user={user} 
-                      />
-                    </TabsContent>
-                    
-                    <TabsContent value="call" className={selectedTab === "call" ? "block" : "hidden"}>
-                      <DoctorCall 
-                        selectedDoctor={selectedDoctor}
-                        inCall={inCall}
-                        isConnecting={isConnecting}
-                        callDuration={callDuration}
-                        startCall={startCall}
-                        endCall={endCall}
-                      />
-                    </TabsContent>
-                  </>
-                )}
+                {/* Use the renderDoctorContent function to conditionally render content */}
+                {renderDoctorContent()}
               </CardContent>
               
               {selectedDoctor && !isConnected && !inCall && (
