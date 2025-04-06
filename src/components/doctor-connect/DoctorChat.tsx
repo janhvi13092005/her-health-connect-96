@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, Paperclip as PaperclipIcon, Mic as MicIcon, MicOff, Smile as SmileIcon, MessageSquare, Play, Trash2, Loader2 } from "lucide-react";
+import { Send, Paperclip as PaperclipIcon, Mic as MicIcon, MicOff, Smile as SmileIcon, MessageSquare, Play, Trash2, Loader2, FileIcon, XCircle, Image as ImageIcon, File } from "lucide-react";
 import { Doctor } from "./DoctorList";
 import { useToast } from "@/components/ui/use-toast";
 import { Progress } from "@/components/ui/progress";
@@ -17,9 +17,20 @@ interface Message {
   text: string;
   timestamp: string;
   isUser: boolean;
-  type?: "text" | "voice";
+  type?: "text" | "voice" | "file";
   audioUrl?: string;
   duration?: number;
+  fileUrl?: string;
+  fileName?: string;
+  fileType?: string;
+  fileSize?: number;
+}
+
+interface FileAttachment {
+  file: File;
+  url: string;
+  type: string;
+  size: number;
 }
 
 interface DoctorChatProps {
@@ -41,6 +52,17 @@ const automatedResponses = [
   "That's important information. Thank you for sharing."
 ];
 
+// Allowed file types for upload
+const ALLOWED_FILE_TYPES = [
+  "image/jpeg", 
+  "image/png", 
+  "image/gif", 
+  "application/pdf", 
+  "application/msword", 
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+];
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
+
 const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -54,6 +76,10 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [isProcessingAudio, setIsProcessingAudio] = useState(false);
+  
+  // File attachment states
+  const [fileAttachment, setFileAttachment] = useState<FileAttachment | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   // Refs for recording
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -93,11 +119,14 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       if (audioUrl) {
         URL.revokeObjectURL(audioUrl);
       }
+      if (fileAttachment) {
+        URL.revokeObjectURL(fileAttachment.url);
+      }
     };
-  }, [audioUrl]);
+  }, [audioUrl, fileAttachment]);
 
   const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
+    if ((!newMessage.trim() && !fileAttachment)) return;
     
     if (!user) {
       toast({
@@ -108,18 +137,36 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       return;
     }
 
-    // Add user message
-    const userMessage: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: user?.id || "user",
-      text: newMessage,
-      timestamp: new Date().toISOString(),
-      isUser: true,
-      type: "text"
-    };
+    // Create message object
+    let userMessage: Message;
+    
+    if (fileAttachment) {
+      userMessage = {
+        id: `msg-file-${Date.now()}`,
+        senderId: user?.id || "user",
+        text: newMessage.trim() ? newMessage : `File: ${fileAttachment.file.name}`,
+        timestamp: new Date().toISOString(),
+        isUser: true,
+        type: "file",
+        fileUrl: fileAttachment.url,
+        fileName: fileAttachment.file.name,
+        fileType: fileAttachment.type,
+        fileSize: fileAttachment.size
+      };
+    } else {
+      userMessage = {
+        id: `msg-${Date.now()}`,
+        senderId: user?.id || "user",
+        text: newMessage,
+        timestamp: new Date().toISOString(),
+        isUser: true,
+        type: "text"
+      };
+    }
 
     setMessages(prev => [...prev, userMessage]);
     setNewMessage("");
+    setFileAttachment(null);
 
     // Simulate doctor typing
     setIsTyping(true);
@@ -210,6 +257,55 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     }
   };
 
+  const handleFileUpload = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File Type",
+        description: "Please upload a valid file (images, PDF, or document).",
+      });
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      toast({
+        variant: "destructive",
+        title: "File Too Large",
+        description: "Please upload a file smaller than 5 MB.",
+      });
+      return;
+    }
+
+    const fileUrl = URL.createObjectURL(file);
+    setFileAttachment({
+      file,
+      url: fileUrl,
+      type: file.type,
+      size: file.size
+    });
+
+    // Reset file input
+    if (e.target) {
+      e.target.value = "";
+    }
+  };
+
+  const removeFileAttachment = () => {
+    if (fileAttachment) {
+      URL.revokeObjectURL(fileAttachment.url);
+      setFileAttachment(null);
+    }
+  };
+
   const cancelVoiceMessage = () => {
     if (audioUrl) {
       URL.revokeObjectURL(audioUrl);
@@ -274,6 +370,23 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     setNewMessage(prev => prev + emoji.native);
   };
 
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1048576) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1048576).toFixed(1)} MB`;
+  };
+
+  const getFileIcon = (fileType: string) => {
+    if (fileType.startsWith("image/")) {
+      return <ImageIcon className="h-10 w-10 text-blue-500" />;
+    } else if (fileType.includes("pdf")) {
+      return <FileIcon className="h-10 w-10 text-red-500" />;
+    } else if (fileType.includes("word") || fileType.includes("document")) {
+      return <File className="h-10 w-10 text-blue-700" />;
+    }
+    return <File className="h-10 w-10 text-gray-500" />;
+  };
+
   return (
     <div className="h-[500px] flex flex-col">
       <div 
@@ -331,6 +444,51 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
                       </div>
                       <span className="text-xs">{formatTime(message.duration || 0)}</span>
                     </div>
+                  ) : message.type === "file" ? (
+                    <div className="flex flex-col">
+                      <div className="flex items-center gap-3 mb-2">
+                        {message.fileType?.startsWith("image/") ? (
+                          <div className="relative h-28 w-28 rounded-md overflow-hidden">
+                            <img 
+                              src={message.fileUrl} 
+                              alt={message.fileName} 
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex items-center">
+                            {getFileIcon(message.fileType || "")}
+                          </div>
+                        )}
+                        <div className="flex-1 overflow-hidden">
+                          <p className={`text-sm font-medium truncate ${message.isUser ? 'text-white' : ''}`}>
+                            {message.fileName}
+                          </p>
+                          {message.fileSize && (
+                            <p className={`text-xs mt-1 ${message.isUser ? 'text-white/70' : 'text-gray-500'}`}>
+                              {formatFileSize(message.fileSize)}
+                            </p>
+                          )}
+                          <Button 
+                            variant={message.isUser ? "outline" : "secondary"} 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => {
+                              if (message.fileUrl) {
+                                window.open(message.fileUrl, '_blank');
+                              }
+                            }}
+                          >
+                            View
+                          </Button>
+                        </div>
+                      </div>
+                      {message.text !== `File: ${message.fileName}` && (
+                        <p className={`text-sm ${message.isUser ? 'text-white' : ''} mt-2`}>
+                          {message.text}
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <p className={`text-sm ${message.isUser ? 'text-white' : ''}`}>
                       {message.text}
@@ -368,6 +526,37 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
       </div>
       
       <div className="p-4 border-t dark:border-gray-800">
+        {/* File attachment preview */}
+        {fileAttachment && (
+          <div className="flex items-center gap-2 mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+            {fileAttachment.type.startsWith("image/") ? (
+              <div className="relative h-12 w-12 rounded overflow-hidden">
+                <img 
+                  src={fileAttachment.url} 
+                  alt="Attachment"
+                  className="h-full w-full object-cover" 
+                />
+              </div>
+            ) : (
+              <div className="flex items-center">
+                {getFileIcon(fileAttachment.type)}
+              </div>
+            )}
+            <div className="flex-grow">
+              <p className="text-sm font-medium truncate">{fileAttachment.file.name}</p>
+              <p className="text-xs text-gray-500">{formatFileSize(fileAttachment.size)}</p>
+            </div>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500 hover:text-gray-700"
+              onClick={removeFileAttachment}
+            >
+              <XCircle className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        
         {/* Voice recording preview */}
         {audioUrl && !isRecording && (
           <div className="flex items-center gap-2 mb-3 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
@@ -425,6 +614,15 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
           </div>
         )}
         
+        {/* Hidden file input */}
+        <input 
+          type="file" 
+          ref={fileInputRef} 
+          className="hidden"
+          onChange={handleFileChange}
+          accept=".jpg,.jpeg,.png,.gif,.pdf,.doc,.docx"
+        />
+        
         {/* Text input and action buttons */}
         <div className="flex space-x-2">
           <Input 
@@ -439,7 +637,11 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
             }}
             disabled={isRecording || isProcessingAudio}
           />
-          <Button size="icon" onClick={handleSendMessage} disabled={isRecording || isProcessingAudio || !newMessage.trim()}>
+          <Button 
+            size="icon" 
+            onClick={handleSendMessage} 
+            disabled={isRecording || isProcessingAudio || (!newMessage.trim() && !fileAttachment)}
+          >
             <Send className="h-4 w-4" />
           </Button>
         </div>
@@ -449,10 +651,8 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
               variant="ghost" 
               size="icon" 
               className="text-gray-500"
-              onClick={() => toast({ 
-                title: "Feature Coming Soon", 
-                description: "File attachments will be available in the next update."
-              })}
+              onClick={handleFileUpload}
+              disabled={isRecording || !!fileAttachment}
             >
               <PaperclipIcon className="h-4 w-4" />
             </Button>
@@ -461,7 +661,7 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
               size="icon" 
               className={isRecording ? "" : "text-gray-500"}
               onClick={handleVoiceRecording}
-              disabled={isProcessingAudio || !!audioUrl}
+              disabled={isProcessingAudio || !!audioUrl || !!fileAttachment}
             >
               {isProcessingAudio ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
