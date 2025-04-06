@@ -1,10 +1,11 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Send, Paperclip as PaperclipIcon, Mic as MicIcon, Smile as SmileIcon, MessageSquare } from "lucide-react";
 import { Doctor } from "./DoctorList";
+import { useToast } from "@/components/ui/use-toast";
 
 interface Message {
   id: string;
@@ -34,20 +35,46 @@ const automatedResponses = [
 ];
 
 const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
+  const { toast } = useToast();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // Initialize chat with a welcome message when connecting with a doctor
+  useEffect(() => {
+    // Add initial doctor message when the chat begins
+    if (selectedDoctor && messages.length === 0) {
+      const initialMessage: Message = {
+        id: `msg-init-${Date.now()}`,
+        senderId: selectedDoctor.id,
+        text: `Hello! I'm Dr. ${selectedDoctor.name.split(' ')[1]}, how can I help you today?`,
+        timestamp: new Date().toISOString(),
+        isUser: false,
+      };
+      
+      setMessages([initialMessage]);
+    }
+  }, [selectedDoctor]); 
 
   useEffect(() => {
     // Auto-scroll to bottom when messages change
-    const messagesContainer = document.getElementById('messages-container');
-    if (messagesContainer) {
-      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [messages]);
 
   const handleSendMessage = () => {
     if (!newMessage.trim()) return;
+    
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please login to send messages.",
+      });
+      return;
+    }
 
     // Add user message
     const userMessage: Message = {
@@ -87,6 +114,7 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
     <div className="h-[500px] flex flex-col">
       <div 
         id="messages-container"
+        ref={messagesContainerRef}
         className="flex-grow overflow-y-auto p-4"
       >
         {messages.length === 0 ? (
@@ -172,13 +200,37 @@ const DoctorChat = ({ selectedDoctor, user }: DoctorChatProps) => {
         </div>
         <div className="flex justify-between mt-2">
           <div className="flex space-x-2">
-            <Button variant="ghost" size="icon" className="text-gray-500">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={() => toast({ 
+                title: "Feature Coming Soon", 
+                description: "File attachments will be available in the next update."
+              })}
+            >
               <PaperclipIcon className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-gray-500">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={() => toast({ 
+                title: "Feature Coming Soon", 
+                description: "Voice messages will be available in the next update."
+              })}
+            >
               <MicIcon className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="text-gray-500">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-gray-500"
+              onClick={() => toast({ 
+                title: "Feature Coming Soon", 
+                description: "Emojis will be available in the next update."
+              })}
+            >
               <SmileIcon className="h-4 w-4" />
             </Button>
           </div>

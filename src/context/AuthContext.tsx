@@ -37,7 +37,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Simulated validation
+      // Always allow the specific email to login with any password for testing
+      if (email === "janhvimandhan@gmail.com") {
+        const user = { id: "user-special", name: "Janhvi Mandhan", email };
+        setUser(user);
+        localStorage.setItem("doctalk-user", JSON.stringify(user));
+        toast({
+          title: "Login successful",
+          description: "Welcome back to DocTalk!",
+        });
+        return true;
+      }
+      
+      // Regular demo user
       if (email === "demo@example.com" && password === "password123") {
         const user = { id: "user-1", name: "Demo User", email };
         setUser(user);
